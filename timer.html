@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网页计时器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        danger: '#EF4444',
+                        dark: '#1F2937',
+                        light: '#F9FAFB'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .timer-shadow {
+                box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.2), 0 8px 10px -6px rgba(59, 130, 246, 0.1);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2;
+            }
+            .pulse-animation {
+                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            @keyframes pulse {
+                0%, 100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+            }
+            .scale-animation {
+                animation: scale 0.2s ease-in-out;
+            }
+            @keyframes scale {
+                0%, 100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.05);
+                }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="bg-white rounded-2xl p-8 shadow-xl timer-shadow transform transition-all duration-500 hover:shadow-2xl">
+            <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-center text-dark mb-6 tracking-tight">
+                网页计时器
+            </h1>
+            
+            <div class="flex justify-center items-center mb-8">
+                <div class="relative">
+                    <div class="w-64 h-64 rounded-full bg-gradient-to-r from-primary to-indigo-500 flex items-center justify-center">
+                        <div id="timer" class="text-[clamp(2.5rem,5vw,4rem)] font-bold text-white tracking-wider">05:00</div>
+                    </div>
+                    <div class="absolute inset-0 rounded-full border-8 border-primary/20" id="timer-border"></div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <button class="preset-btn bg-blue-100 hover:bg-blue-200 text-primary font-medium py-2 px-4 rounded-lg transition-all duration-300" data-time="300">5分钟</button>
+                <button class="preset-btn bg-blue-100 hover:bg-blue-200 text-primary font-medium py-2 px-4 rounded-lg transition-all duration-300" data-time="900">15分钟</button>
+                <button class="preset-btn bg-blue-100 hover:bg-blue-200 text-primary font-medium py-2 px-4 rounded-lg transition-all duration-300" data-time="1800">30分钟</button>
+                <button class="preset-btn bg-blue-100 hover:bg-blue-200 text-primary font-medium py-2 px-4 rounded-lg transition-all duration-300" data-time="3600">60分钟</button>
+            </div>
+            
+            <div class="flex items-center justify-center gap-4 mb-6">
+                <div class="flex flex-col items-center w-full">
+                    <label for="custom-time" class="text-sm text-gray-600 mb-1">自定义时间 (分钟)</label>
+                    <div class="relative">
+                        <input type="number" id="custom-time" min="1" max="999" value="5" 
+                               class="w-full text-center py-3 px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-lg">
+                    </div>
+                    <button id="set-custom-time" class="w-full mt-3 bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 btn-hover">
+                        设置自定义时间
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex justify-center gap-4">
+                <button id="startBtn" class="bg-secondary hover:bg-secondary/90 text-white font-bold py-3 px-8 rounded-full shadow-lg btn-hover focus:ring-secondary">
+                    <i class="fa fa-play mr-2"></i>开始
+                </button>
+                <button id="stopBtn" class="bg-danger hover:bg-danger/90 text-white font-bold py-3 px-8 rounded-full shadow-lg btn-hover focus:ring-danger" disabled>
+                    <i class="fa fa-stop mr-2"></i>停止
+                </button>
+            </div>
+            
+            <div class="mt-8 text-center text-gray-500 text-sm">
+                <p>一个简单但功能完整的网页计时器</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const timerElement = document.getElementById('timer');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const timerBorder = document.getElementById('timer-border');
+        const presetButtons = document.querySelectorAll('.preset-btn');
+        const customTimeInput = document.getElementById('custom-time');
+        const setCustomTimeBtn = document.getElementById('set-custom-time');
+        
+        // 计时器变量
+        let countdownTime = 5 * 60; // 默认5分钟
+        let timerInterval = null;
+        let isRunning = false;
+        let remainingTime = countdownTime;
+        
+        // 格式化时间函数
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const secs = (seconds % 60).toString().padStart(2, '0');
+            return `${minutes}:${secs}`;
+        }
+        
+        // 更新计时器显示
+        function updateTimer() {
+            remainingTime--;
+            timerElement.textContent = formatTime(remainingTime);
+            
+            // 更新圆形进度条
+            const progress = remainingTime / countdownTime;
+            timerBorder.style.opacity = progress;
+            
+            // 添加动画效果
+            timerElement.classList.add('scale-animation');
+            setTimeout(() => {
+                timerElement.classList.remove('scale-animation');
+            }, 200);
+            
+            // 倒计时结束
+            if (remainingTime <= 0) {
+                stopTimer();
+                timerElement.classList.add('pulse-animation', 'text-danger');
+                
+                // 播放提示音
+                const audio = new Audio('data:audio/wav;base64,UklGRiQDAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYEB');
+                audio.play().catch(e => console.log('播放提示音失败:', e));
+                
+                setTimeout(() => {
+                    timerElement.classList.remove('pulse-animation', 'text-danger');
+                }, 3000);
+            }
+        }
+        
+        // 开始计时器
+        function startTimer() {
+            if (!isRunning) {
+                timerInterval = setInterval(updateTimer, 1000);
+                isRunning = true;
+                
+                // 按钮状态更新
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                presetButtons.forEach(btn => btn.disabled = true);
+                customTimeInput.disabled = true;
+                setCustomTimeBtn.disabled = true;
+                
+                // 添加按钮动画
+                startBtn.classList.add('opacity-70', 'scale-95');
+                stopBtn.classList.remove('opacity-70', 'scale-95');
+                
+                // 添加背景动画
+                document.body.classList.add('animate-[gradient_15s_ease_infinite]');
+                timerBorder.classList.add('animate-spin-slow');
+            }
+        }
+        
+        // 停止计时器
+        function stopTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                
+                // 按钮状态更新
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                presetButtons.forEach(btn => btn.disabled = false);
+                customTimeInput.disabled = false;
+                setCustomTimeBtn.disabled = false;
+                
+                // 添加按钮动画
+                startBtn.classList.remove('opacity-70', 'scale-95');
+                stopBtn.classList.add('opacity-70', 'scale-95');
+                
+                // 移除背景动画
+                document.body.classList.remove('animate-[gradient_15s_ease_infinite]');
+                timerBorder.classList.remove('animate-spin-slow');
+            }
+        }
+        
+        // 重置计时器
+        function resetTimer() {
+            stopTimer();
+            remainingTime = countdownTime;
+            timerElement.textContent = formatTime(remainingTime);
+            timerElement.classList.remove('pulse-animation', 'text-danger');
+            timerBorder.style.opacity = 1;
+        }
+        
+        // 设置预设时间
+        function setPresetTime(seconds) {
+            countdownTime = seconds;
+            resetTimer();
+        }
+        
+        // 设置自定义时间
+        function setCustomTime() {
+            const minutes = parseInt(customTimeInput.value);
+            if (!isNaN(minutes) && minutes > 0 && minutes <= 999) {
+                countdownTime = minutes * 60;
+                resetTimer();
+                
+                // 添加成功反馈
+                setCustomTimeBtn.classList.add('bg-secondary');
+                setCustomTimeBtn.innerHTML = '<i class="fa fa-check mr-2"></i>设置成功';
+                setTimeout(() => {
+                    setCustomTimeBtn.classList.remove('bg-secondary');
+                    setCustomTimeBtn.innerHTML = '设置自定义时间';
+                }, 1500);
+            } else {
+                // 添加错误反馈
+                customTimeInput.classList.add('border-danger');
+                setCustomTimeBtn.classList.add('bg-danger');
+                setCustomTimeBtn.innerHTML = '<i class="fa fa-exclamation-circle mr-2"></i>请输入有效数字';
+                
+                setTimeout(() => {
+                    customTimeInput.classList.remove('border-danger');
+                    setCustomTimeBtn.classList.remove('bg-danger');
+                    setCustomTimeBtn.innerHTML = '设置自定义时间';
+                    customTimeInput.value = Math.floor(countdownTime / 60);
+                }, 2000);
+            }
+        }
+        
+        // 添加事件监听器
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        
+        // 预设时间按钮
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const time = parseInt(btn.dataset.time);
+                setPresetTime(time);
+                
+                // 按钮动画
+                btn.classList.add('bg-primary', 'text-white');
+                setTimeout(() => {
+                    btn.classList.remove('bg-primary', 'text-white');
+                }, 300);
+            });
+        });
+        
+        // 自定义时间
+        setCustomTimeBtn.addEventListener('click', setCustomTime);
+        customTimeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                setCustomTime();
+            }
+        });
+        
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes gradient {
+                0% {
+                    background-position: 0% 50%;
+                }
+                50% {
+                    background-position: 100% 50%;
+                }
+                100% {
+                    background-position: 0% 50%;
+                }
+            }
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+            .animate-shake {
+                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            }
+            .animate-spin-slow {
+                animation: spin 20s linear infinite;
+            }
+            @keyframes spin {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 初始状态设置
+        resetTimer();
+    </script>
+</body>
+</html>
